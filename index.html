@@ -1107,6 +1107,65 @@ html.intro-lock, body.intro-lock { overflow: hidden; }
   }
 
 
+  // ============================================================
+  // CALENDARIO DINÁMICO — Google Apps Script Bridge
+  // Cuando tengas la URL del script desplegado, pégala aquí:
+  // ============================================================
+  const CALENDAR_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzXpFi8ziUXTp1jY42ciixqKbzDh9SymNVKKY7BwNowUrcaqs5l0y0ZdXdPTUKewU0eRA/exec';
+
+  const CAT_LABELS = { red:'Trauma', blue:'Clínico', orange:'Reanimación', green:'Prevención' };
+
+  function buildCursoCard(curso) {
+    const c = curso.categoria || 'blue';
+    const label = CAT_LABELS[c] || 'Curso';
+    let html = `
+      <div class="course ${c}">
+        <div class="kicker"><span aria-hidden="true" class="dot"></span> ${label}</div>
+        <strong>${curso.titulo}</strong>
+        ${curso.diasTexto ? `<div class="meta">📅 <b>${curso.diasTexto}</b>${curso.horaTexto ? ' · ' + curso.horaTexto : ''}</div>` : ''}
+        ${curso.lugar     ? `<div class="meta">📍 ${curso.lugar}</div>` : ''}
+        ${curso.precio    ? `<div class="meta">💰 Inversión: <b>$${curso.precio} MXN</b></div>` : ''}
+        ${curso.cupo      ? `<div class="meta">👥 ${curso.cupo}</div>` : ''}
+        ${curso.inscripcion ? `<div class="meta" style="margin-top:6px"><a href="${curso.inscripcion}" target="_blank" rel="noreferrer" style="color:var(--${c === 'red' ? 'red' : c === 'orange' ? 'orange' : c === 'green' ? 'green' : 'blue'});font-weight:800">Inscripción →</a></div>` : ''}
+        ${curso.flyer ? `<div style="margin-top:14px;border-radius:14px;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.12)"><img src="${curso.flyer}" alt="Flyer ${curso.titulo}" style="width:100%;display:block;border-radius:14px" loading="lazy"/></div>` : ''}
+      </div>`;
+    return html;
+  }
+
+  function renderCalendario(data) {
+    const container = document.querySelector('.months');
+    if (!container || !data.ok) return;
+    const meses = data.meses || {};
+    const keys = Object.keys(meses);
+    if (!keys.length) return;
+
+    let html = '';
+    keys.forEach((mes, i) => {
+      const cursos = meses[mes];
+      const badge = `<span class="badge" style="background:rgba(198,40,40,.12);color:#C62828;">${cursos.length} curso${cursos.length > 1 ? 's' : ''} confirmado${cursos.length > 1 ? 's' : ''}</span>`;
+      html += `
+        <details class="month reveal${i === 0 ? ' open' : ''}">
+          <summary><span>${mes}</span>${badge}</summary>
+          <div class="body">
+            <div class="course-grid">
+              ${cursos.map(buildCursoCard).join('')}
+            </div>
+          </div>
+        </details>`;
+    });
+
+    container.innerHTML = html;
+    // Re-observar nuevos elementos reveal
+    document.querySelectorAll('.months .reveal').forEach(el => io.observe(el));
+  }
+
+  if (CALENDAR_SCRIPT_URL) {
+    fetch(CALENDAR_SCRIPT_URL)
+      .then(r => r.json())
+      .then(data => renderCalendario(data))
+      .catch(() => {}); // Si falla, queda el contenido estático
+  }
+
   // Intro (logo late + fade) — premium, sin afectar rendimiento
   (function(){
     const intro = document.getElementById('intro');
